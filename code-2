@@ -1,0 +1,259 @@
+import mysql.connector
+from mysql.connector import Error
+
+o = "|| Welcome to Library Database ||"
+print(o.center(65, "~"))
+
+# Establish a connection to the database (or create a new one if it doesn't exist)
+try:
+    con = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        password='password'  # Ensure this is the correct password
+    )
+    if con.is_connected():
+        print('Connected to the database')
+    else:
+        print('Failed to connect')
+except Error as err:
+    print(f"Error: {err}")
+    exit()
+
+# Create a cursor object to interact with the database
+cur = con.cursor()
+
+# Define a function that executes a query and fetches the results
+def fe(query, val=()):
+    cur.execute(query, val)
+    return cur.fetchall()
+
+# Database definition
+k = fe('SHOW DATABASES')
+if ('school_library',) in k:
+    print('Database exists')
+else:
+    fe('CREATE DATABASE school_library')
+    print('Database created')
+
+# Using the database
+fe('USE school_library')
+
+# Defining tables
+y = fe('SHOW TABLES')
+if ('books',) not in y:
+    fe("CREATE TABLE books (Book_id INT PRIMARY KEY, title CHAR(24), author CHAR(24), genre CHAR(12), availability TINYINT(1))")
+    print('Books table created')
+
+if ('students',) not in y:
+    fe("CREATE TABLE students (Book_id INT, class CHAR(5), name CHAR(24), admis_no INT PRIMARY KEY)")
+    print('Students table created')
+
+# Function to add entries to the library database
+def add_entry():
+    try:
+        w = int(input('Choose\n 1. STUDENT entry\n 2. BOOK entry\n'))
+    except ValueError:
+        print("Invalid input. Please enter 1 or 2.")
+        return
+
+    if w == 1:
+        try:
+            values = input('Enter values to insert\nformat:\nclass, name, admis_no\n').split(', ')
+            fe('INSERT INTO students (class, name, admis_no) VALUES (%s, %s, %s)', tuple(values))
+            con.commit()
+            print("Student entry added successfully.")
+        except Error as e:
+            print(f"Error: {e}")
+    elif w == 2:
+        try:
+            values = input('Enter values to insert\nformat:\nBook_id, title, author, genre, availability\n').split(', ')
+            fe('INSERT INTO books (Book_id, title, author, genre, availability) VALUES (%s, %s, %s, %s, %s)', tuple(values))
+            con.commit()
+            print("Book entry added successfully.")
+        except Error as e:
+            print(f"Error: {e}")
+
+# Function to delete entries from the library database
+def delete_entry():
+    try:
+        w = int(input('Delete\n 1. BOOK entry\n 2. STUDENT entry\n'))
+    except ValueError:
+        print("Invalid input. Please enter 1 or 2.")
+        return
+
+    if w == 1:
+        try:
+            book_id = input('Enter Book_id to delete: ')
+            fe('DELETE FROM books WHERE Book_id=%s', (book_id,))
+            con.commit()
+            print("Book entry deleted successfully.")
+        except Error as e:
+            print(f"Error: {e}")
+    elif w == 2:
+        try:
+            h = input('Enter admis_no or name to delete: ')
+            if h.isdigit():
+                fe('DELETE FROM students WHERE admis_no=%s', (h,))
+            else:
+                fe('DELETE FROM students WHERE name=%s', (h,))
+            con.commit()
+            print("Student entry deleted successfully.")
+        except Error as e:
+            print(f"Error: {e}")
+
+# Function to modify entries in the library database
+def modify_entry():
+    try:
+        w = int(input('Enter list to update\n1. Books\n2. Students\n'))
+    except ValueError:
+        print("Invalid input. Please enter 1 or 2.")
+        return
+
+    if w == 1:
+        column_options = {1: 'Book_id', 2: 'title', 3: 'author', 4: 'genre', 5: 'availability'}
+        try:
+            col_to_update = column_options[int(input(
+                'Choose the type of column for update\n1. Book_id\n2. title\n3. author\n4. genre\n5. availability\n'))]
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 5.")
+            return
+
+        new_value = input('Enter the new value: ')
+        try:
+            criteria_col = column_options[int(input(
+                'Choose the type of column as criteria for update\n1. Book_id\n2. title\n3. author\n4. genre\n5. availability\n'))]
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 5.")
+            return
+
+        criteria_value = input('Enter the criteria value: ')
+        fe(f'UPDATE books SET {col_to_update} = %s WHERE {criteria_col} = %s', (new_value, criteria_value))
+        con.commit()
+        print("Book entry updated successfully.")
+
+    elif w == 2:
+        column_options = {1: 'Book_id', 2: 'class', 3: 'name', 4: 'admis_no'}
+        try:
+            col_to_update = column_options[
+                int(input('Choose the type of column for update\n1. Book_id\n2. class\n3. name\n4. admis_no\n'))]
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 4.")
+            return
+
+        new_value = input('Enter the new value: ')
+        try:
+            criteria_col = column_options[int(input(
+                'Choose the type of column as criteria for update\n1. Book_id\n2. class\n3. name\n4. admis_no\n'))]
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 4.")
+            return
+
+        criteria_value = input('Enter the criteria value: ')
+        fe(f'UPDATE students SET {col_to_update} = %s WHERE {criteria_col} = %s', (new_value, criteria_value))
+        con.commit()
+        print("Student entry updated successfully.")
+
+# Function to issue and return books
+def alter_library(e):
+    s = input('Enter the Book_id: ')
+    a = input('Enter the admis_no: ')
+
+    if e == 4:  # Issue Book
+        fe('UPDATE students SET Book_id = %s WHERE admis_no = %s', (s, a))
+        fe('UPDATE books SET availability = 0 WHERE Book_id = %s', (s,))
+        con.commit()
+    elif e == 5:  # Return Book
+        fe('UPDATE students SET Book_id = NULL WHERE admis_no = %s', (a,))
+        fe('UPDATE books SET availability = 1 WHERE Book_id = %s', (s,))
+        con.commit()
+    print('Operation successful.')
+
+# Function to display library data
+def display_data():
+    try:
+        c = int(input('Enter list to be displayed\n1. Books\n2. Students\n'))
+    except ValueError:
+        print("Invalid input. Please enter 1 or 2.")
+        return
+
+    if c == 1:
+        try:
+            j = int(input('1. All records\n2. Specific records\n'))
+        except ValueError:
+            print("Invalid input. Please enter 1 or 2.")
+            return
+
+        if j == 1:
+            print(fe('SELECT * FROM books'))
+        elif j == 2:
+            column_options = {1: 'Book_id', 2: 'title', 3: 'author', 4: 'genre', 5: 'availability'}
+            try:
+                criteria_col = column_options[
+                    int(input('Choose criteria column\n1. Book_id\n2. title\n3. author\n4. genre\n5. availability\n'))]
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and 5.")
+                return
+
+            criteria_value = input('Enter the criteria value: ')
+            print(fe(f'SELECT * FROM books WHERE {criteria_col} = %s', (criteria_value,)))
+
+    elif c == 2:
+        try:
+            j = int(input('1. All records\n2. Specific records\n'))
+        except ValueError:
+            print("Invalid input. Please enter 1 or 2.")
+            return
+
+        if j == 1:
+            print(fe('SELECT * FROM students'))
+        elif j == 2:
+            column_options = {1: 'Book_id', 2: 'class', 3: 'name', 4: 'admis_no'}
+            try:
+                criteria_col = column_options[
+                    int(input('Choose criteria column\n1. Book_id\n2. class\n3. name\n4. admis_no\n'))]
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and 4.")
+                return
+
+            criteria_value = input('Enter the criteria value: ')
+            print(fe(f'SELECT * FROM students WHERE {criteria_col} = %s', (criteria_value,)))
+
+# Mapping for task names to corresponding numbers
+task_map = {
+    '1': 1, 'add': 1,
+    '2': 2, 'modify': 2,
+    '3': 3, 'delete library data': 3, 'delete': 3,
+    '4': 4, 'issue book': 4, 'issue': 4,
+    '5': 5, 'return book': 5, 'return': 5,
+    '6': 6, 'display data': 6, 'display': 6,
+    '7': 7, 'exit': 7
+}
+
+# Looping inputs to the library
+while True:
+    task = input(
+        'Enter type of task to be performed\n1.ADD\n2.MODIFY\n3.DELETE LIBRARY DATA\n4.ISSUE BOOK\n5.RETURN BOOK\n6.DISPLAY DATA\n7.EXIT\n').strip().lower()
+
+    z = task_map.get(task)
+
+    if not z:
+        print("Invalid input. Please enter a valid number or task name.")
+        continue
+
+    if z == 1:
+        add_entry()
+    elif z == 2:
+        modify_entry()
+    elif z == 3:
+        delete_entry()
+    elif z == 4:
+        alter_library(4)
+    elif z == 5:
+        alter_library(5)
+    elif z == 6:
+        display_data()
+    elif z == 7:
+        print("Exiting the program.")
+        cur.close()
+        con.close()
+        break
